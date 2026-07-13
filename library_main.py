@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import datetime
 
 # ============================================
-# DATABASE SETUP - SQLite
+# DATABASE SETUP - SQLite (Working Version)
 # ============================================
 DATABASE_URL = "sqlite:///./library.db"
 engine = create_engine(DATABASE_URL, echo=True)
@@ -57,6 +57,10 @@ app = FastAPI(
 def root():
     return {"message": "Welcome to the Library API"}
 
+# ============================================
+# ENDPOINT 1: CREATE A BOOK (POST)
+# ============================================
+
 @app.post("/books", response_model=Book)
 def create_book(book: BookCreate, session: Session = Depends(get_session)):
     """Create a new book"""
@@ -65,6 +69,10 @@ def create_book(book: BookCreate, session: Session = Depends(get_session)):
     session.commit()
     session.refresh(db_book)
     return db_book
+
+# ============================================
+# ENDPOINT 2: LIST ALL BOOKS (GET)
+# ============================================
 
 @app.get("/books", response_model=List[Book])
 def list_books(
@@ -79,6 +87,10 @@ def list_books(
         query = query.where(Book.available == available)
     return session.exec(query.offset(skip).limit(limit)).all()
 
+# ============================================
+# ENDPOINT 3: GET A SINGLE BOOK BY ID (GET)
+# ============================================
+
 @app.get("/books/{book_id}", response_model=Book)
 def get_book(book_id: int, session: Session = Depends(get_session)):
     """Get a specific book by ID"""
@@ -86,6 +98,10 @@ def get_book(book_id: int, session: Session = Depends(get_session)):
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
     return book
+
+# ============================================
+# ENDPOINT 4: UPDATE A BOOK (PATCH) - EXERCISE 3
+# ============================================
 
 @app.patch("/books/{book_id}", response_model=Book)
 def update_book(
@@ -107,6 +123,10 @@ def update_book(
     session.refresh(book)
     return book
 
+# ============================================
+# ENDPOINT 5: DELETE A BOOK (DELETE)
+# ============================================
+
 @app.delete("/books/{book_id}")
 def delete_book(book_id: int, session: Session = Depends(get_session)):
     """Delete a book"""
@@ -117,3 +137,45 @@ def delete_book(book_id: int, session: Session = Depends(get_session)):
     session.delete(book)
     session.commit()
     return {"message": "Book deleted successfully"}
+
+# ============================================
+# ENDPOINT 6: SEARCH BOOKS (GET) - EXERCISE 2
+# ============================================
+
+@app.get("/books/search", response_model=List[Book])
+def search_books(
+    q: str,
+    author: Optional[str] = None,
+    title: Optional[str] = None,
+    session: Session = Depends(get_session)
+):
+    """Search for books by author or title"""
+    query = select(Book)
+    
+    if author:
+        query = query.where(Book.author.contains(author))
+    if title:
+        query = query.where(Book.title.contains(title))
+    if q:
+        # Search in both title and author
+        query = query.where(
+            (Book.title.contains(q)) | (Book.author.contains(q))
+        )
+    
+    return session.exec(query).all()
+
+# ============================================
+# ENDPOINT 7: TEST SEARCH (GET) - For testing
+# ============================================
+
+@app.get("/search-test")
+def search_test():
+    return {
+        "message": "Search endpoint is available at /books/search?q=your_search_term",
+        "examples": [
+            "/books/search?q=Reminders",
+            "/books/search?author=Hoover",
+            "/books/search?title=Reminders",
+            "/books/search?q=Gatsby&author=Fitzgerald"
+        ]
+    }
